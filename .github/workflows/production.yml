@@ -1,0 +1,30 @@
+#name: Node.js CI
+#
+#on:
+#    push:
+#        branches: [main, pull_request]
+#
+#jobs:
+#    build:
+#        runs-on: [self-hosted, production]
+#
+#        strategy:
+#            matrix:
+#                python-version: ["3.11.2"]
+#
+#        steps:
+#            - uses: actions/checkout@v3
+#            - name: Update config
+#              run: |
+#                echo "DATABASE_PORT=27017" >> ./.env
+#                echo "TOKEN=6422833664:AAFqAuone0n3ibpGtSY6NWc8ejdU6_yLWHo" >> ./.env
+#                echo "CHAT_ID=-1002040335064" >> ./.env
+#            - name: Set up Python ${{ matrix.python-version }}
+#              uses: actions/setup-python@v4
+#              with:
+#                  python-version: ${{ matrix.python-version }}
+#            - name: Install
+#              run: |
+#                    pip3 install --upgrade pip
+#                    if [ -f requirements.txt ]; then pip3 install -r requirements.txt; fi
+#                     /home/admin/.nvm/versions/node/v18.16.0/bin/pm2 reload bd
