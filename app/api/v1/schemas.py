@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Dict, List
 
 from pydantic import BaseModel, Field
@@ -40,13 +41,13 @@ class DepositWithdrawRequest(BaseModel):
 class OkResponse(BaseModel):
     success: bool = True
 
-class OrderStatus(str):
+class OrderStatus(Enum):
     NEW = "NEW"
     EXECUTED = "EXECUTED"
     PARTIALLY_EXECUTED = "PARTIALLY_EXECUTED"
     CANCELLED = "CANCELLED"
 
-class OrderDirection(str):
+class OrderDirection(Enum):
     BUY = "BUY"
     SELL = "SELL"
 

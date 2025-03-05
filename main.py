@@ -1,6 +1,4 @@
-import pydantic.json
-import pydantic.json
-from bson import ObjectId
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBasic
@@ -10,8 +8,6 @@ from app.api.v1.admin.route_admin import route_admin
 from app.api.v1.balance.route_balance import route_balance
 from app.api.v1.order.route_order import route_order
 from app.api.v1.public.route_public import route_public
-
-pydantic.json.ENCODERS_BY_TYPE[ObjectId] = str
 
 t = "anus"
 app = FastAPI(version="1.0.0", docs_url=f"/{t}", redoc_url=None, title="АНАЛЫ")
@@ -38,3 +34,8 @@ app.include_router(route_public, tags=["public"])
 app.include_router(route_balance, tags=["balance"])
 app.include_router(route_order, tags=["order"])
 app.include_router(route_admin, tags=["admin"])
+
+
+# Запуск сервера через uvicorn
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)

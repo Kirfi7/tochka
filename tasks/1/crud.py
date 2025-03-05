@@ -21,10 +21,13 @@ storage: Dict[int, Item] = {i: Item(name=fake.word(), price=fake.random_number(d
 @app.post("/items/", response_model=int)
 def create_item(item: Item) -> int:
     """
-    Добавляет новый товар в хранилище.
+    ## Добавляет новый товар в хранилище
 
-    :param item: Объект Item с названием и ценой
-    :return: ID добавленного товара
+    **Параметры:**
+    - `item` (Item): Данные нового товара
+
+    **Возвращает:**
+    - `int`: Идентификатор добавленного товара
     """
     item_id = max(storage.keys()) + 1 if storage else 0
     storage[item_id] = item
@@ -34,24 +37,31 @@ def create_item(item: Item) -> int:
 @app.get("/items/{item_id}", response_model=Item)
 def get_item(item_id: int) -> Item:
     """
-    Получает информацию о товаре по ID.
+    ## Получает информацию о товаре по ID
 
-    :param item_id: Идентификатор товара
-    :return: Объект Item с информацией о товаре
+    **Параметры:**
+    - `item_id` (int): Идентификатор товара
+
+    **Возвращает:**
+    - `Item`: Данные товара
     """
     if item_id not in storage:
-        raise HTTPException(status_code=404, detail="Item not found.")
+        raise HTTPException(status_code=404, detail="Item не найден")
     return storage[item_id]
 
 
 @app.put("/items/{item_id}", response_model=Item)
 def update_item(item_id: int, item: Item) -> Item:
     """
-    Обновляет информацию о существующем товаре.
+    ## Обновляет информацию о существующем товаре
 
-    :param item_id: Идентификатор товара
-    :param item: Обновленные данные товара
-    :return: Обновленный объект Item
+    **Параметры:**
+    - `item_id` (int): Идентификатор товара
+
+    - `item` (Item): Обновленные данные товара
+
+    **Возвращает:**
+    - `Item`: Обновленный объект товара
     """
     if item_id not in storage:
         raise HTTPException(status_code=404, detail="Item не найден")
@@ -62,10 +72,13 @@ def update_item(item_id: int, item: Item) -> Item:
 @app.delete("/items/{item_id}", response_model=str)
 def delete_item(item_id: int) -> str:
     """
-    Удаляет товар по его ID.
+    ## Удаляет товар по его ID
 
-    :param item_id: Идентификатор товара
-    :return: Сообщение об успешном удалении
+    **Параметры:**
+    - `item_id` (int): Идентификатор товара
+
+    **Возвращает:**
+    - `str`: Сообщение об успешном удалении
     """
     if item_id not in storage:
         raise HTTPException(status_code=404, detail="Item не найден")

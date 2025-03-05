@@ -1,14 +1,9 @@
 from typing import Optional
 
-import pydantic.json
-import pydantic.json
-from bson import ObjectId
 from fastapi import APIRouter, Header, HTTPException
 
 from app.api.v1.database import users
 from app.api.v1.schemas import DepositWithdrawRequest, BalanceResponse, OkResponse
-
-pydantic.json.ENCODERS_BY_TYPE[ObjectId] = str
 
 route_balance = APIRouter(prefix="/api/v1")
 

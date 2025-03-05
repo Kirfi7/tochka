@@ -1,16 +1,11 @@
 import uuid
 from typing import Optional, List
 
-import pydantic.json
-import pydantic.json
-from bson import ObjectId
 from fastapi import APIRouter
 from fastapi import HTTPException, Query
 
 from app.api.v1.database import users, instruments, orderbooks, transactions
 from app.api.v1.schemas import NewUser, Instrument, User, L2OrderBook, Transaction
-
-pydantic.json.ENCODERS_BY_TYPE[ObjectId] = str
 
 route_public = APIRouter(prefix="/api/v1/public")
 

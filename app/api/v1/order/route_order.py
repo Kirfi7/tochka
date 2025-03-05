@@ -1,16 +1,11 @@
 import uuid
 from typing import List, Optional
 
-import pydantic.json
-import pydantic.json
-from bson import ObjectId
 from fastapi import APIRouter
 from fastapi import HTTPException, Header
 
 from app.api.v1.database import orders, users
 from app.api.v1.schemas import OrderStatus, MarketOrderBody, CreateOrderResponse, LimitOrderBody, Order, OkResponse
-
-pydantic.json.ENCODERS_BY_TYPE[ObjectId] = str
 
 route_order = APIRouter(prefix="/api/v1")
 
