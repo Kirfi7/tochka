@@ -18,8 +18,8 @@ jobs:
 
       - name: Stop old containers
         run: |
-          docker-compose -f docker-compose.yml down || true
+          docker compose -f docker-compose.yml down || true
 
       - name: Rebuild and start containers
         run: |
-          docker-compose -f docker-compose.yml up -d --build
+          docker compose -f docker-compose.yml up -d --build
