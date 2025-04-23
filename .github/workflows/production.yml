@@ -16,17 +16,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-  deploy:
-    needs: build
-    runs-on: self-hosted
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Stop and remove old containers (if running)
+      - name: Stop old containers
         run: |
-          docker compose -f docker-compose.yml down || true
+          docker-compose -f docker-compose.yml down || true
 
       - name: Rebuild and start containers
         run: |
-          docker compose -f docker-compose.yml up -d --build
+          docker-compose -f docker-compose.yml up -d --build
