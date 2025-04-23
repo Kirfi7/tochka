@@ -1,8 +1,11 @@
-from app.api.v1.schemas import Instrument
+# app/api/v1/database.py
+from typing import Dict, List
 
-users = {}
-instruments = [Instrument(name="ToyCoin", ticker="TOY")]
-orderbooks = {}
-transactions = {}
-balances = {}
-orders = {}
+from app.api.v1.schemas import Instrument, L2OrderBook, Transaction, Order
+
+users: Dict[str, Dict] = {}
+instruments: List[Instrument] = [Instrument(name="ToyCoin", ticker="TOY")]
+balances: Dict[str, Dict[str, float]] = {}
+orderbooks: Dict[str, L2OrderBook] = {}
+transactions: Dict[str, List[Transaction]] = {}
+orders: Dict[str, Order] = {}

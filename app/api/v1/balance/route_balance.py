@@ -1,38 +1,35 @@
+# app/api/v1/balance/route_balance.py
+from fastapi import APIRouter, Header, HTTPException
 from typing import Optional
 
-from fastapi import APIRouter, Header, HTTPException
-
-from app.api.v1.database import users
+from app.api.v1.database import users, balances
 from app.api.v1.schemas import DepositWithdrawRequest, BalanceResponse, OkResponse
 
-route_balance = APIRouter(prefix="/api/v1")
+router = APIRouter()
 
-balances = {
-    "MEMCOIN": 0,
-    "DODGE": 100500,
-}
+def get_user_id(authorization: Optional[str]):
+    if not authorization:
+        raise HTTPException(401, "Missing Authorization header")
+    for uid, u in users.items():
+        if u["api_key"] == authorization:
+            return uid
+    raise HTTPException(403, "Invalid token")
 
-@route_balance.get("/balance", response_model=BalanceResponse)
-def get_balances(authorization: Optional[str] = Header(None)):
-    if not authorization or authorization not in users:
-        raise HTTPException(status_code=403, detail="Unauthorized")
-    user_id = authorization
-    return {"balances": balances.get(user_id, {})}
+@router.get("/balance", response_model=BalanceResponse)
+def get_balances(Authorization: Optional[str] = Header(None)):
+    uid = get_user_id(Authorization)
+    return BalanceResponse(balances=balances[uid])
 
-@route_balance.post("/balance/deposit", response_model=OkResponse)
-def deposit(request: DepositWithdrawRequest, authorization: Optional[str] = Header(None)):
-    if not authorization or authorization not in users:
-        raise HTTPException(status_code=403, detail="Unauthorized")
-    user_id = authorization
-    balances[user_id][request.ticker] = balances[user_id].get(request.ticker, 0) + request.amount
+@router.post("/balance/deposit", response_model=OkResponse)
+def deposit(request: DepositWithdrawRequest, Authorization: Optional[str] = Header(None)):
+    uid = get_user_id(Authorization)
+    balances[uid][request.ticker] = balances[uid].get(request.ticker, 0.0) + request.amount
     return OkResponse()
 
-@route_balance.post("/balance/withdraw", response_model=OkResponse)
-def withdraw(request: DepositWithdrawRequest, authorization: Optional[str] = Header(None)):
-    if not authorization or authorization not in users:
-        raise HTTPException(status_code=403, detail="Unauthorized")
-    user_id = authorization
-    if balances[user_id].get(request.ticker, 0) < request.amount:
-        raise HTTPException(status_code=400, detail="Insufficient funds")
-    balances[user_id][request.ticker] -= request.amount
+@router.post("/balance/withdraw", response_model=OkResponse)
+def withdraw(request: DepositWithdrawRequest, Authorization: Optional[str] = Header(None)):
+    uid = get_user_id(Authorization)
+    if balances[uid].get(request.ticker, 0.0) < request.amount:
+        raise HTTPException(400, "Insufficient funds")
+    balances[uid][request.ticker] -= request.amount
     return OkResponse()

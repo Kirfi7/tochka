@@ -1,34 +1,38 @@
+# app/api/v1/public/route_public.py
 import uuid
-from typing import Optional, List
+import time
+from fastapi import APIRouter, HTTPException
+from typing import List
 
-from fastapi import APIRouter
-from fastapi import HTTPException, Query
+from app.api.v1.database import users, instruments, balances, orderbooks, transactions
+from app.api.v1.schemas import NewUser, User, Instrument, L2OrderBook, Transaction
 
-from app.api.v1.database import users, instruments, orderbooks, transactions
-from app.api.v1.schemas import NewUser, Instrument, User, L2OrderBook, Transaction
+router = APIRouter()
 
-route_public = APIRouter(prefix="/api/v1/public")
-
-@route_public.post("/register", response_model=User)
+@router.post("/register", response_model=User)
 def register(user: NewUser):
     user_id = str(uuid.uuid4())
-    api_key = f"key-{uuid.uuid4()}"
-    new_user = User(id=user_id, name=user.name, role="USER", api_key=api_key)
-    users[user_id] = new_user
-    return new_user
+    api_key = str(uuid.uuid4())
+    users[user_id] = {"id": user_id, "name": user.name, "role": "USER", "api_key": api_key}
+    # init user data
+    balances[user_id] = {"RUB": 0.0}
+    for inst in instruments:
+        orderbooks[inst.ticker] = L2OrderBook(bids=[], asks=[])
+        transactions[inst.ticker] = []
+    return User(id=user_id, name=user.name, role="USER", api_key=api_key)
 
-@route_public.get("/instrument", response_model=List[Instrument])
+@router.get("/instruments", response_model=List[Instrument])
 def list_instruments():
     return instruments
 
-@route_public.get("/orderbook/{ticker}", response_model=L2OrderBook)
-def get_orderbook(ticker: str, limit: Optional[int] = Query(10, le=25)):
+@router.get("/orderbook/{ticker}", response_model=L2OrderBook)
+def get_orderbook(ticker: str):
     if ticker not in orderbooks:
         raise HTTPException(status_code=404, detail="Ticker not found")
     return orderbooks[ticker]
 
-@route_public.get("/transactions/{ticker}", response_model=List[Transaction])
-def get_transaction_history(ticker: str, limit: Optional[int] = Query(10, le=100)):
+@router.get("/transactions/{ticker}", response_model=List[Transaction])
+def get_transactions(ticker: str, limit: int = 10):
     if ticker not in transactions:
         raise HTTPException(status_code=404, detail="Ticker not found")
-    return transactions[ticker][:limit]
+    return transactions[ticker][-limit:]
