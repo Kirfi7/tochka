@@ -9,3 +9,4 @@ parser_products/funko
 app/zphoto
 app/prods.json
 app/prods_updated.json
+build/

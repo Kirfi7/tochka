@@ -1,26 +1,22 @@
-# main.py
 import uvicorn
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import ORJSONResponse
 
-from app.api.v1.public.route_public import router as public_router
-from app.api.v1.balance.route_balance import router as balance_router
-from app.api.v1.order.route_order import router as order_router
-from app.api.v1.admin.route_admin import router as admin_router
+from app.api.v1 import routera as public_router
+from app.core.middlewares import add_cors_middleware, RequestLoggerMiddleware
 
-app = FastAPI(title="Mini Exchange", version="1.0.0", docs_url="/docs")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+app = FastAPI(
+    title="Mini Exchange",
+    version="1.0.1",
+    docs_url="/docs",
+    default_response_class=ORJSONResponse,  # для скорости
 )
 
-app.include_router(public_router, prefix="/api/v1/public", tags=["public"])
-app.include_router(balance_router, prefix="/api/v1", tags=["balance"])
-app.include_router(order_router, prefix="/api/v1", tags=["order"])
-app.include_router(admin_router, prefix="/api/v1/admin", tags=["admin"])
+# middlewares
+app.add_middleware(RequestLoggerMiddleware)
+add_cors_middleware(app)
+
+app.include_router()
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
