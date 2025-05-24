@@ -1,49 +1,44 @@
-from typing import Self
+from typing import Any
 
-from pydantic import BaseModel, PostgresDsn, ValidationInfo, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import BaseModel, BaseSettings, PostgresDsn, root_validator
 
 
 class AppConfig(BaseModel):
-    workers: int = 5
+    workers: int = 4
 
 
 class DB(BaseModel):
     host: str = 'localhost'
-    port: int = 5432
+    port: str = '5432'
     username: str = 'username'
     password: str = 'password'
     name: str = 'name'
     url: str = ''
 
-    @model_validator(mode='after')
-    def assemble_dsn(self, validation_info: ValidationInfo) -> Self:
-        self.url = str(
+    @root_validator(pre=False)
+    def assemble_dsn(cls, values: dict[str, Any]) -> dict[str, Any]:
+        values['url'] = str(
             PostgresDsn.build(
                 scheme='postgresql+asyncpg',
-                username=self.username,
-                password=self.password,
-                host=self.host,
-                port=int(self.port),
-                path=self.name,
+                username=values.get('username'),
+                password=values.get('password'),
+                host=values.get('host'),
+                port=values.get('port'),
+                path=f"/{values.get('name')}",
             )
         )
-        return self
+        return values
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=(
-            '.env.template',
-            '.env.local',
-        ),
-        case_sensitive=False,
-        env_nested_delimiter='__',
-        extra='allow',
-    )
-
     app: AppConfig = AppConfig()
     db: DB = DB()
+
+    class Config:
+        env_file = '.env'
+        case_sensitive = False
+        env_nested_delimiter = '__'
+        extra = 'allow'
 
 
 settings = Settings()

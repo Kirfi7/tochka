@@ -29,18 +29,18 @@ async def get_user(
 ) -> User:
     query = select(User).where(User.api_key == token)
     result = await db_session.execute(query)
-    current_user = result.scalars().first()
+    db_user = result.scalars().first()
 
-    if not current_user or current_user.is_deleted:
+    if not db_user or db_user.is_deleted:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный или отсутствующий API ключ"
         )
 
-    return current_user
+    return db_user
 
 
-async def for_admin(user: User = Depends(retrieve_user)) -> User:
+async def for_admin(user: User = Depends(get_user)) -> User:
     if user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -6,7 +6,7 @@ class BaseModelWithRoot(BaseModel, Generic[T]):
 
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, RootModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DepositRequest(BaseModel):

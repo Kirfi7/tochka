@@ -65,7 +65,7 @@ class OrderDetailResponse(BaseModel):
     filled: int = 0
 
     @validator('timestamp', pre=True, always=True)
-    def ensure_timezone(self, v: datetime) -> datetime:
+    def ensure_timezone(cls, v: datetime) -> datetime:
         """Убедиться, что datetime содержит информацию о временной зоне"""
         if v.tzinfo is None:
             return v.replace(tzinfo=timezone.utc)

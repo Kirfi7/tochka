@@ -1,3 +1,0 @@
-fastapi
-faker
-uvicorn[standard]

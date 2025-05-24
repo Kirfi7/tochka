@@ -16,7 +16,7 @@ async def register_user(
 ) -> User:
     try:
         user = await user_crud.add_user(body.name, session)
-        return User.model_validate(user)
+        return User.from_orm(user)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Внутренняя ошибка сервера register_user: {str(e)}")
 
@@ -25,10 +25,10 @@ async def register_user(
     '/public/profile', summary='Получение профиля пользователя', tags=['public']
 )
 async def get_profile_user(
-    current_user: AsyncSession = Depends(get_user),
+    user: AsyncSession = Depends(get_user),
 ) -> User:
     try:
-        user = User.from_orm(current_user)
+        user = User.from_orm(user)
         return user
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Внутренняя ошибка сервера get_profile_user: {str(e)}")

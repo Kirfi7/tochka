@@ -1,19 +1,21 @@
 '''Импорты всех роутеров.'''
+from fastapi import APIRouter
 
-from .user import router as user_router  # noqa: F401
-from .admin.balance import router as balance_router  # noqa: F401
-from .admin.user import router as admin_user_router  # noqa: F401
-from .instrument import router as instrument_router  # noqa: F401
-from .order import router as order_router  # noqa: F401
-from .admin.instrument import router as admin_instrument_router  # noqa: F401
-from .orderbook import router as orderbook_router  # noqa: F401
+from app.api.v1.user import router as user_router
+from app.api.v1.admin.balance import router as balance_router
+from app.api.v1.admin.user import router as admin_user_router
+from app.api.v1.instrument import router as instrument_router
+from app.api.v1.order import router as order_router
+from app.api.v1.admin.instrument import router as admin_instrument_router
+from app.api.v1.orderbook import router as orderbook_router
 
-__all__ = [
-    'user_router',
-    'balance_router',
-    'admin_user_router',
-    'instrument_router',
-    'order_router',
-    'admin_instrument_router',
-    'orderbook_router',
-]
+router = APIRouter(prefix="/api/v1")
+
+router.include_router(instrument_router)
+router.include_router(balance_router)
+router.include_router(order_router)
+router.include_router(orderbook_router)
+
+router.include_router(user_router)
+router.include_router(admin_user_router)
+router.include_router(admin_instrument_router)

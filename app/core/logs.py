@@ -1,6 +1,8 @@
 import logging
-from logging.handlers import RotatingFileHandler
 import os
+from functools import wraps
+from logging.handlers import RotatingFileHandler
+from typing import Any
 
 # TODO: переделать, то директория для логов существует
 LOG_DIR = "logs"
@@ -31,3 +33,18 @@ console_handler.setLevel(logging.INFO)
 # Добавляем обработчики
 app_logger.addHandler(file_handler)
 app_logger.addHandler(console_handler)
+
+
+# 🚨 Декоратор для логирования ошибок
+def error_log(func):
+    @wraps(func)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            app_logger.error(
+                f"Can't do this operation in DB in method {func.__name__}. Error: {e}"
+            )
+            raise e
+
+    return wrapper

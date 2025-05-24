@@ -27,8 +27,8 @@ class Base(AsyncAttrs, DeclarativeBase):
     )
 
     @declared_attr.directive
-    def __tablename__(cls) -> str:  # noqa: N805
-        name = cls.__name__
+    def __tablename__(self) -> str:  # noqa: N805
+        name = self.__name__
         name = re.sub(r'([A-Z]+)(?=[A-Z][a-z]|\d|\W|$)|\B([A-Z])', r'_\1\2', name)
         name = name.lower()
         name = name.lstrip('_')

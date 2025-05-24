@@ -1,9 +1,9 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.logs.logs import error_log
+from app.core.logs import error_log
 from app.models import Order
-from app.models.order import OrderBookDirection, OrderStatus, OrderBookScope
+from app.models.order import Direction, Status, OrderBookScope
 
 
 @error_log
@@ -19,6 +19,7 @@ async def get_orderbook(
 
     Args:
         ticker: тикер инструмента
+        user_id: тикер инструмента
         session: сессия БД
         limit: максимальное количество уровней в каждой стороне стакана
         levels: какие типы заявок надо найти
@@ -37,8 +38,8 @@ async def get_orderbook(
                             Order.id,
                             Order.status).where(
             Order.ticker == ticker,
-            Order.direction == OrderBookDirection.BUY,
-            Order.status.in_([OrderStatus.NEW, OrderStatus.PARTIALLY_EXECUTED]),
+            Order.direction == Direction.BUY,
+            Order.status.in_([Status.NEW, Status.PARTIALLY_EXECUTED]),
             Order.price.isnot(None),
             Order.filled < Order.qty,
             Order.user_id != user_id
@@ -68,8 +69,8 @@ async def get_orderbook(
                             Order.id,
                             Order.status).where(
             Order.ticker == ticker,
-            Order.direction == OrderBookDirection.SELL,
-            Order.status.in_([OrderStatus.NEW, OrderStatus.PARTIALLY_EXECUTED]),
+            Order.direction == Direction.SELL,
+            Order.status.in_([Status.NEW, Status.PARTIALLY_EXECUTED]),
             Order.price.isnot(None),
             Order.filled < Order.qty,
             Order.user_id != user_id

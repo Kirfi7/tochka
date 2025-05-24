@@ -7,10 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, asc, update, desc
 from datetime import datetime
 
-from app.core.logs.logs import error_log, error_logger, info_logger
+from app.core.logs import error_log, app_logger
 from app.crud.v1.order.base import CRUDOrderBase
 from app.crud.v1.balance import balance_crud
-from app.models.order import Order, OrderStatus, OrderBookDirection
+from app.models.order import Order, Status, Direction
 from app.models.transaction import Transaction
 
 
@@ -24,7 +24,7 @@ class CRUDOrderV2(CRUDOrderBase):
             ticker: str,
             qty: int,
             session: AsyncSession) -> Order:
-        error_logger.error("start market buy order")
+        app_logger.error("start market buy order")
         # Находим заявки контрагентов в БД
         counterparty_orders = await self._get_sell_orders(
             ticker=ticker,
@@ -41,7 +41,7 @@ class CRUDOrderV2(CRUDOrderBase):
         # Сначала обрабатываем заявки из базы данных по приоритету цены и времени
         for counterparty_order in counterparty_orders:
 
-            info_logger.info(
+            app_logger.info(
                 f"exec remaining_qty: {remaining_qty}, counterparty_order: {counterparty_order.__dict__}")
 
             if remaining_qty <= 0:
@@ -85,11 +85,11 @@ class CRUDOrderV2(CRUDOrderBase):
         if len(counterparty_orders) == 0:
             return await self._create_order(
                 user_id=user_id,
-                direction=OrderBookDirection.BUY,
+                direction=Direction.BUY,
                 ticker=ticker,
                 qty=qty,
                 price=None,
-                status=OrderStatus.CANCELLED,
+                status=Status.CANCELLED,
                 filled=0,
                 session=session
             )
@@ -97,22 +97,22 @@ class CRUDOrderV2(CRUDOrderBase):
         if remaining_qty == 0:
             return await self._create_order(
                 user_id=user_id,
-                direction=OrderBookDirection.BUY,
+                direction=Direction.BUY,
                 ticker=ticker,
                 qty=qty,
                 price=None,  # Рыночная заявка
-                status=OrderStatus.EXECUTED,
+                status=Status.EXECUTED,
                 filled=qty,
                 session=session
             )
         if remaining_qty > 0:
             return await self._create_order(
                 user_id=user_id,
-                direction=OrderBookDirection.BUY,
+                direction=Direction.BUY,
                 ticker=ticker,
                 qty=qty,
                 price=None,  # Рыночная заявка
-                status=OrderStatus.PARTIALLY_EXECUTED,
+                status=Status.PARTIALLY_EXECUTED,
                 filled=remaining_qty,
                 session=session
             )
@@ -125,7 +125,7 @@ class CRUDOrderV2(CRUDOrderBase):
             qty: int,
             price: int,
             session: AsyncSession) -> Order:
-        error_logger.error("start buy limit")
+        app_logger.error("start buy limit")
 
         success_block = await balance_crud.try_block_ticker(user_id, ticker="RUB", amount=qty * price, session=session)
         if not success_block:
@@ -144,7 +144,7 @@ class CRUDOrderV2(CRUDOrderBase):
         remaining_balance = qty * price
         # Сначала обрабатываем заявки из базы данных по приоритету цены и времени
         for counterparty_order in counterparty_orders:
-            info_logger.info(
+            app_logger.info(
                 f"exec remaining_qty: {remaining_qty}, counterparty_order: {counterparty_order.__dict__}")
 
             if remaining_qty <= 0:
@@ -184,15 +184,15 @@ class CRUDOrderV2(CRUDOrderBase):
             remaining_qty -= buy_count
             remaining_balance -= buy_count * counterparty_order.price
 
-        error_logger.error("2")
+        app_logger.error("2")
         if len(counterparty_orders) == 0:
             return await self._create_order(
                 user_id=user_id,
-                direction=OrderBookDirection.BUY,
+                direction=Direction.BUY,
                 ticker=ticker,
                 qty=qty,
                 price=price,
-                status=OrderStatus.NEW,
+                status=Status.NEW,
                 filled=0,
                 session=session
             )
@@ -200,11 +200,11 @@ class CRUDOrderV2(CRUDOrderBase):
         if remaining_qty == 0:
             return await self._create_order(
                 user_id=user_id,
-                direction=OrderBookDirection.BUY,
+                direction=Direction.BUY,
                 ticker=ticker,
                 qty=qty,
                 price=price,
-                status=OrderStatus.EXECUTED,
+                status=Status.EXECUTED,
                 filled=qty,
                 session=session
             )
@@ -212,11 +212,11 @@ class CRUDOrderV2(CRUDOrderBase):
             await balance_crud.release_ticker(user_id, ticker="RUB", amount=remaining_qty * price, session=session)
             return await self._create_order(
                 user_id=user_id,
-                direction=OrderBookDirection.BUY,
+                direction=Direction.BUY,
                 ticker=ticker,
                 qty=qty,
                 price=price,
-                status=OrderStatus.PARTIALLY_EXECUTED,
+                status=Status.PARTIALLY_EXECUTED,
                 filled=qty - remaining_qty,
                 session=session
             )
@@ -227,7 +227,7 @@ class CRUDOrderV2(CRUDOrderBase):
             ticker: str,
             qty: int,
             session: AsyncSession) -> Order:
-        info_logger.info(f"start market sell order")
+        app_logger.info(f"start market sell order")
 
         success_block = await balance_crud.try_block_ticker(user_id, ticker=ticker, amount=qty, session=session)
         if not success_block:
@@ -245,7 +245,7 @@ class CRUDOrderV2(CRUDOrderBase):
 
         # Сначала обрабатываем заявки из базы данных по приоритету цены и времени
         for counterparty_order in counterparty_orders:
-            info_logger.info(
+            app_logger.info(
                 f"exec remaining_qty: {remaining_qty}, counterparty_order: {counterparty_order.__dict__}")
             if remaining_qty <= 0:
                 break
@@ -257,7 +257,7 @@ class CRUDOrderV2(CRUDOrderBase):
                 remaining_qty,
                 max_price=sys.maxsize,
                 session=session)
-            info_logger.info(f"sell_count: {sell_count}")
+            app_logger.info(f"sell_count: {sell_count}")
 
             success_buy = await balance_crud.commit_buy(
                 user_buy_id=counterparty_order.user_id,
@@ -289,11 +289,11 @@ class CRUDOrderV2(CRUDOrderBase):
         if len(counterparty_orders) == 0:
             return await self._create_order(
                 user_id=user_id,
-                direction=OrderBookDirection.SELL,
+                direction=Direction.SELL,
                 ticker=ticker,
                 qty=qty,
                 price=None,
-                status=OrderStatus.CANCELLED,
+                status=Status.CANCELLED,
                 filled=0,
                 session=session
             )
@@ -301,22 +301,22 @@ class CRUDOrderV2(CRUDOrderBase):
         if remaining_qty == 0:
             return await self._create_order(
                 user_id=user_id,
-                direction=OrderBookDirection.SELL,
+                direction=Direction.SELL,
                 ticker=ticker,
                 qty=qty,
                 price=None,  # Рыночная заявка
-                status=OrderStatus.EXECUTED,
+                status=Status.EXECUTED,
                 filled=qty,
                 session=session
             )
         if remaining_qty > 0:
             return await self._create_order(
                 user_id=user_id,
-                direction=OrderBookDirection.SELL,
+                direction=Direction.SELL,
                 ticker=ticker,
                 qty=qty,
                 price=None,  # Рыночная заявка
-                status=OrderStatus.PARTIALLY_EXECUTED,
+                status=Status.PARTIALLY_EXECUTED,
                 filled=remaining_qty,
                 session=session
             )
@@ -328,7 +328,7 @@ class CRUDOrderV2(CRUDOrderBase):
             qty: int,
             price: int,
             session: AsyncSession) -> Order:
-        info_logger.info("start limit sell order")
+        app_logger.info("start limit sell order")
 
         success_block = await balance_crud.try_block_ticker(user_id, ticker=ticker, amount=qty, session=session)
         if not success_block:
@@ -347,7 +347,7 @@ class CRUDOrderV2(CRUDOrderBase):
 
         # Сначала обрабатываем заявки из базы данных по приоритету цены и времени
         for counterparty_order in counterparty_orders:
-            info_logger.info(
+            app_logger.info(
                 f"exec remaining_qty: {remaining_qty}, counterparty_order: {counterparty_order.__dict__}")
             if remaining_qty <= 0:
                 break
@@ -357,7 +357,7 @@ class CRUDOrderV2(CRUDOrderBase):
                 max_amount=remaining_qty,
                 max_price=sys.maxsize,
                 session=session)
-            info_logger.info(f"sell_count: {sell_count}")
+            app_logger.info(f"sell_count: {sell_count}")
 
             success_buy = await balance_crud.commit_buy(
                 user_buy_id=counterparty_order.user_id,
@@ -373,7 +373,7 @@ class CRUDOrderV2(CRUDOrderBase):
             if not success_buy:
                 await self._release_fill(counterparty_order.id, sell_count, session)
                 continue
-            info_logger.info(f"commit_buy")
+            app_logger.info(f"commit_buy")
 
             transaction = Transaction(
                 user_id=counterparty_order.user_id,
@@ -387,42 +387,42 @@ class CRUDOrderV2(CRUDOrderBase):
 
             remaining_qty -= sell_count
 
-        info_logger.info(f"finish remaining_qty: {remaining_qty}")
+        app_logger.info(f"finish remaining_qty: {remaining_qty}")
         if len(counterparty_orders) == 0:
-            info_logger.info(f"create empty order")
+            app_logger.info(f"create empty order")
             return await self._create_order(
                 user_id=user_id,
-                direction=OrderBookDirection.SELL,
+                direction=Direction.SELL,
                 ticker=ticker,
                 qty=qty,
                 price=price,
-                status=OrderStatus.NEW,
+                status=Status.NEW,
                 filled=0,
                 session=session
             )
 
         if remaining_qty == 0:
-            info_logger.info(f"create executed order")
+            app_logger.info(f"create executed order")
             return await self._create_order(
                 user_id=user_id,
-                direction=OrderBookDirection.SELL,
+                direction=Direction.SELL,
                 ticker=ticker,
                 qty=qty,
                 price=price,
-                status=OrderStatus.EXECUTED,
+                status=Status.EXECUTED,
                 filled=qty,
                 session=session
             )
         if remaining_qty > 0:
-            info_logger.info(f"create PARTIALLY_EXECUTED order")
+            app_logger.info(f"create PARTIALLY_EXECUTED order")
             await balance_crud.release_ticker(user_id, ticker=ticker, amount=remaining_qty, session=session)
             return await self._create_order(
                 user_id=user_id,
-                direction=OrderBookDirection.SELL,
+                direction=Direction.SELL,
                 ticker=ticker,
                 qty=qty,
                 price=price,
-                status=OrderStatus.PARTIALLY_EXECUTED,
+                status=Status.PARTIALLY_EXECUTED,
                 filled=remaining_qty,
                 session=session
             )
@@ -447,10 +447,10 @@ class CRUDOrderV2(CRUDOrderBase):
             .where(
                 and_(
                     Order.ticker == ticker,
-                    Order.direction == OrderBookDirection.SELL,
+                    Order.direction == Direction.SELL,
                     or_(
-                        Order.status == OrderStatus.NEW,
-                        Order.status == OrderStatus.PARTIALLY_EXECUTED
+                        Order.status == Status.NEW,
+                        Order.status == Status.PARTIALLY_EXECUTED
                     ),
                     Order.user_id != user_id
                 )
@@ -481,10 +481,10 @@ class CRUDOrderV2(CRUDOrderBase):
             .where(
                 and_(
                     Order.ticker == ticker,
-                    Order.direction == OrderBookDirection.SELL,
+                    Order.direction == Direction.SELL,
                     or_(
-                        Order.status == OrderStatus.NEW,
-                        Order.status == OrderStatus.PARTIALLY_EXECUTED
+                        Order.status == Status.NEW,
+                        Order.status == Status.PARTIALLY_EXECUTED
                     ),
                     Order.price <= price,
                     Order.user_id != user_id
@@ -515,10 +515,10 @@ class CRUDOrderV2(CRUDOrderBase):
             .where(
                 and_(
                     Order.ticker == ticker,
-                    Order.direction == OrderBookDirection.BUY,
+                    Order.direction == Direction.BUY,
                     or_(
-                        Order.status == OrderStatus.NEW,
-                        Order.status == OrderStatus.PARTIALLY_EXECUTED
+                        Order.status == Status.NEW,
+                        Order.status == Status.PARTIALLY_EXECUTED
                     ),
                     Order.user_id != user_id
                 )
@@ -549,10 +549,10 @@ class CRUDOrderV2(CRUDOrderBase):
             .where(
                 and_(
                     Order.ticker == ticker,
-                    Order.direction == OrderBookDirection.BUY,
+                    Order.direction == Direction.BUY,
                     or_(
-                        Order.status == OrderStatus.NEW,
-                        Order.status == OrderStatus.PARTIALLY_EXECUTED
+                        Order.status == Status.NEW,
+                        Order.status == Status.PARTIALLY_EXECUTED
                     ),
                     Order.price >= price,
                     Order.user_id != user_id
@@ -573,23 +573,23 @@ class CRUDOrderV2(CRUDOrderBase):
             order = (await session.execute(
                 select(self.model)
                 .where(and_(self.model.id == order_id,
-                            or_(self.model.status == OrderStatus.NEW,
-                                self.model.status == OrderStatus.PARTIALLY_EXECUTED)))
+                            or_(self.model.status == Status.NEW,
+                                self.model.status == Status.PARTIALLY_EXECUTED)))
                 .with_for_update()
             )).scalar_one_or_none()
 
             if not order:
-                info_logger.info(f"not order:{order_id}")
+                app_logger.info(f"not order:{order_id}")
                 return 0
 
-            info_logger.info(f"try fill order:{order.__dict__}")
+            app_logger.info(f"try fill order:{order.__dict__}")
             ostatok = order.qty - order.filled
             block = min(ostatok, max_amount)
-            info_logger.info(f"block without price:{block}")
+            app_logger.info(f"block without price:{block}")
 
             while block * order.price > max_price:
                 block -= 1
-            info_logger.info(f"block with price:{block}")
+            app_logger.info(f"block with price:{block}")
             if block <= 0:
                 return 0
 
@@ -597,14 +597,14 @@ class CRUDOrderV2(CRUDOrderBase):
                 (await session.execute(
                     update(self.model)
                     .where(and_(self.model.id == order.id))
-                    .values(filled=self.model.filled + block, status=OrderStatus.EXECUTED)
+                    .values(filled=self.model.filled + block, status=Status.EXECUTED)
                     .returning(self.model)
                 )).scalar_one()
             else:
                 (await session.execute(
                     update(self.model)
                     .where(and_(self.model.id == order.id))
-                    .values(filled=self.model.filled + block, status=OrderStatus.PARTIALLY_EXECUTED)
+                    .values(filled=self.model.filled + block, status=Status.PARTIALLY_EXECUTED)
                     .returning(self.model)
                 )).scalar_one()
 
@@ -626,16 +626,16 @@ class CRUDOrderV2(CRUDOrderBase):
                 .values(filled=self.model.filled - qty)
                 .returning(self.model)
             )).scalar_one()
-            if order.status != OrderStatus.CANCELLED:
-                order.status = OrderStatus.PARTIALLY_EXECUTED
+            if order.status != Status.CANCELLED:
+                order.status = Status.PARTIALLY_EXECUTED
 
             await session.commit()
         except IntegrityError as e:
             await session.rollback()
             raise e
 
-    async def _create_order(self, user_id: str, direction: OrderBookDirection, ticker: str,
-                            qty: int, price: int, status: OrderStatus, filled: int,
+    async def _create_order(self, user_id: str, direction: Direction, ticker: str,
+                            qty: int, price: int, status: Status, filled: int,
                             session: AsyncSession) -> Order:
         """
         Создание заявки с указанными параметрами

@@ -7,6 +7,7 @@ from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import Base
+from app.core.logs import error_log, app_logger
 
 PydanticSchema = TypeVar('PydanticSchema', bound=BaseModel)
 SQLAlchemyModel = TypeVar('SQLAlchemyModel', bound=Base)
@@ -63,7 +64,7 @@ class CRUDBase(Generic[SQLAlchemyModel]):
                 getattr(self.model, self.primary_key_name) == primary_key_value
             )
         )
-        info_logger.info(
+        app_logger.info(
             f"Get successfully object: {self.model.__name__}"
             f" with {self.primary_key_name}: {primary_key_value}"
         )
@@ -117,7 +118,7 @@ class CRUDBase(Generic[SQLAlchemyModel]):
         if order_by:
             query = query.order_by(*order_by)
         db_objs = await async_session.execute(query)
-        info_logger.info(
+        app_logger.info(
             f"Get successfully objects {self.model.__name__}" f" in get_multi"
         )
         return db_objs.scalars().unique().all()
@@ -147,7 +148,7 @@ class CRUDBase(Generic[SQLAlchemyModel]):
         async_session.add(db_obj)
         await async_session.flush()
         await async_session.refresh(db_obj)
-        info_logger.info(
+        app_logger.info(
             f"Create new obj: {self.model.__name__}"
             f" with {self.primary_key_name}: {self.get_primary_key_value(db_obj)}"
         )
@@ -179,7 +180,7 @@ class CRUDBase(Generic[SQLAlchemyModel]):
         async_session.add(db_obj)
         await async_session.flush()
         await async_session.refresh(db_obj)
-        info_logger.info(
+        app_logger.info(
             f"Update obj: {self.model.__name__}"
             f" with {self.primary_key_name}: {self.get_primary_key_value(db_obj)}"
         )
@@ -199,7 +200,7 @@ class CRUDBase(Generic[SQLAlchemyModel]):
         """
         await async_session.delete(db_obj)
         await async_session.flush()
-        info_logger.info(
+        app_logger.info(
             f"Successfully remove obj:"
             f" {self.model.__name__} with {self.primary_key_name}: "
             f"{self.get_primary_key_value(db_obj)}"
@@ -226,7 +227,7 @@ class CRUDBase(Generic[SQLAlchemyModel]):
             SQLAlchemyModel | None: Найденный объект или None, если объект не найден
         """
         if not hasattr(self.model, attr_name):
-            error_logger.error(
+            app_logger.error(
                 f"Attribute '{attr_name}' doesn't exist in the model"
                 f" {self.model.__name__}"
             )
@@ -239,12 +240,12 @@ class CRUDBase(Generic[SQLAlchemyModel]):
             db_obj = await async_session.execute(
                 select(self.model).where(attr == attr_value)
             )
-            info_logger.info(
+            app_logger.info(
                 f"Successfully get object {self.model.__name__}" f" in get_by_attribute"
             )
             return db_obj.scalars().first()
         except InvalidRequestError as e:
-            error_logger.error(
+            app_logger.error(
                 f"Can't make request with attribute: '{attr_name}':" f" {str(e)}"
             )
             raise ValueError(

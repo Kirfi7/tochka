@@ -2,11 +2,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, desc, asc
 from datetime import datetime
 
-from app.core.logs.logs import info_logger
+from app.core.logs import app_logger
 from app.crud.v1.order.base import CRUDOrderBase
 from app.crud.v1.order.market_data import get_orderbook
 from app.crud.v1.balance import balance_crud
-from app.models.order import Order, OrderStatus, OrderBookDirection, OrderBookScope
+from app.models.order import Order, Status, Direction, OrderBookScope
 from app.models.transaction import Transaction
 from app.models.balance import Balance
 
@@ -19,7 +19,7 @@ class CRUDOrder(CRUDOrderBase):
         """Получение биржевого стакана - делегируем в специализированный модуль"""
         return await get_orderbook(ticker, session, limit, levels, user_id)
 
-    async def create_order(self, user_id: str, direction: OrderBookDirection, ticker: str,
+    async def create_order(self, user_id: str, direction: Direction, ticker: str,
                            qty: int, price: int = None, session: AsyncSession = None) -> Order:
         """
         Создание заявки на бирже
@@ -35,7 +35,7 @@ class CRUDOrder(CRUDOrderBase):
         Returns:
             Созданная заявка
         """
-        if direction == OrderBookDirection.SELL:
+        if direction == Direction.SELL:
             return await self._process_sell_order(
                 user_id=user_id,
                 ticker=ticker,
@@ -52,7 +52,7 @@ class CRUDOrder(CRUDOrderBase):
                 session=session
             )
 
-    async def _find_matching_orders(self, ticker: str, direction: OrderBookDirection,
+    async def _find_matching_orders(self, ticker: str, direction: Direction,
                                     price: int = None, limit: int = 100,
                                     session: AsyncSession = None) -> list:
         """
@@ -69,7 +69,7 @@ class CRUDOrder(CRUDOrderBase):
             Список найденных заявок
         """
         # Определяем противоположное направление для поиска
-        opposite_direction = OrderBookDirection.BUY if direction == OrderBookDirection.SELL else OrderBookDirection.SELL
+        opposite_direction = Direction.BUY if direction == Direction.SELL else Direction.SELL
 
         # Формируем базовый запрос
         stmt = select(Order).where(
@@ -77,15 +77,15 @@ class CRUDOrder(CRUDOrderBase):
                 Order.ticker == ticker,
                 Order.direction == opposite_direction,
                 or_(
-                    Order.status == OrderStatus.NEW,
-                    Order.status == OrderStatus.PARTIALLY_EXECUTED
+                    Order.status == Status.NEW,
+                    Order.status == Status.PARTIALLY_EXECUTED
                 )
             )
         )
 
         # Если указана цена, добавляем условие по цене
         if price is not None:
-            if direction == OrderBookDirection.SELL:
+            if direction == Direction.SELL:
                 # Для продажи ищем заявки на покупку с ценой >= нашей цены
                 stmt = stmt.where(Order.price >= price)
             else:
@@ -93,7 +93,7 @@ class CRUDOrder(CRUDOrderBase):
                 stmt = stmt.where(Order.price <= price)
 
         # Сортируем по цене и времени создания (лучшая цена в начале, затем по времени создания)
-        if opposite_direction == OrderBookDirection.BUY:
+        if opposite_direction == Direction.BUY:
             # Для встречных заявок на покупку - сортируем от большей цены к меньшей (продаем тому, кто предлагает больше)
             stmt = stmt.order_by(desc(Order.price), asc(Order.created_at))
         else:
@@ -120,12 +120,12 @@ class CRUDOrder(CRUDOrderBase):
 
         # Обновляем статус заявки
         if order.filled >= order.qty:
-            order.status = OrderStatus.EXECUTED
+            order.status = Status.EXECUTED
         else:
-            order.status = OrderStatus.PARTIALLY_EXECUTED
+            order.status = Status.PARTIALLY_EXECUTED
 
         # Разблокируем средства у контрагента в соответствии с исполненным объемом
-        if order.direction == OrderBookDirection.BUY:
+        if order.direction == Direction.BUY:
             # Разблокируем рубли у покупателя
             if order.price is not None:  # Для лимитной заявки
                 amount_to_unblock = executed_qty * order.price
@@ -177,7 +177,7 @@ class CRUDOrder(CRUDOrderBase):
                     async_session=session
                 )
 
-    async def _create_cancelled_order(self, user_id: str, direction: OrderBookDirection, ticker: str, qty: int,
+    async def _create_cancelled_order(self, user_id: str, direction: Direction, ticker: str, qty: int,
                                       price: int = None, session: AsyncSession = None) -> Order:
         """
         Создание заявки в статусе ОТМЕНЕНА
@@ -193,14 +193,14 @@ class CRUDOrder(CRUDOrderBase):
         Returns:
             Созданная заявка
         """
-        info_logger.info("create cancel order")
+        app_logger.info("create cancel order")
         order = Order(
             user_id=user_id,
             direction=direction,
             ticker=ticker,
             qty=qty,
             price=price,
-            status=OrderStatus.CANCELLED,
+            status=Status.CANCELLED,
             filled=0
         )
         session.add(order)
@@ -263,8 +263,8 @@ class CRUDOrder(CRUDOrderBase):
             )
             return transaction_amount, executable_qty
 
-    async def _create_order(self, user_id: str, direction: OrderBookDirection, ticker: str,
-                            qty: int, price: int, status: OrderStatus, filled: int,
+    async def _create_order(self, user_id: str, direction: Direction, ticker: str,
+                            qty: int, price: int, status: Status, filled: int,
                             session: AsyncSession) -> Order:
         """
         Создание заявки с указанными параметрами
@@ -296,7 +296,7 @@ class CRUDOrder(CRUDOrderBase):
         await session.commit()
         return order
 
-    async def _determine_order_status(self, executed_qty: int, qty: int) -> OrderStatus:
+    async def _determine_order_status(self, executed_qty: int, qty: int) -> Status:
         """
         Определение статуса заявки на основе исполненного количества
 
@@ -308,11 +308,11 @@ class CRUDOrder(CRUDOrderBase):
             Статус заявки
         """
         if executed_qty <= 0:
-            return OrderStatus.NEW
+            return Status.NEW
         elif executed_qty >= qty:
-            return OrderStatus.EXECUTED
+            return Status.EXECUTED
         else:
-            return OrderStatus.PARTIALLY_EXECUTED
+            return Status.PARTIALLY_EXECUTED
 
     async def _match_orders(self, user_id: str, ticker: str, qty: int, price_levels: list,
                             is_buy: bool, price: int = None, session: AsyncSession = None) -> tuple:
@@ -331,7 +331,7 @@ class CRUDOrder(CRUDOrderBase):
         Returns:
             tuple: (исполненное количество, потраченная/полученная сумма)
         """
-        info_logger.info("match orders")
+        app_logger.info("match orders")
         executed_qty = 0
         total_amount = 0
 
@@ -339,7 +339,7 @@ class CRUDOrder(CRUDOrderBase):
             return executed_qty, total_amount
 
         # Направление нашей заявки
-        direction = OrderBookDirection.BUY if is_buy else OrderBookDirection.SELL
+        direction = Direction.BUY if is_buy else Direction.SELL
 
         # Находим заявки контрагентов в БД
         counterparty_orders = await self._find_matching_orders(
@@ -481,18 +481,18 @@ class CRUDOrder(CRUDOrderBase):
         # else:
         #     return await order_crud_v2.sell_limit(user_id=user_id, ticker=ticker, qty=qty, price=price, session=session)
 
-        info_logger.info("start sell")
+        app_logger.info("start sell")
         if is_market_order:
-            info_logger.info("start market sell")
+            app_logger.info("start market sell")
             # 3. Рыночная заявка - проверяем наличие спроса (заявок на покупку)
             orderbook = await self.get_orderbook(ticker=ticker, session=session, levels=OrderBookScope.BID, user_id=user_id)
             bid_levels = orderbook["bid_levels"]
-            info_logger.info(f"bid_levels: {bid_levels}")
+            app_logger.info(f"bid_levels: {bid_levels}")
             if not bid_levels:
                 # 4. Нет заявок на покупку - отменяем заявку
                 return await self._create_cancelled_order(
                     user_id=user_id,
-                    direction=OrderBookDirection.SELL,
+                    direction=Direction.SELL,
                     ticker=ticker,
                     qty=qty,
                     price=None,
@@ -501,12 +501,12 @@ class CRUDOrder(CRUDOrderBase):
 
             # Проверяем, хватит ли заявок на покупку
             total_available_qty = sum(level["qty"] for level in bid_levels)
-            info_logger.info(f"total_available_qty: {total_available_qty}")
+            app_logger.info(f"total_available_qty: {total_available_qty}")
             if total_available_qty < qty:
-                info_logger.info("total_available_qty < qty")
+                app_logger.info("total_available_qty < qty")
                 return await self._create_cancelled_order(
                     user_id=user_id,
-                    direction=OrderBookDirection.SELL,
+                    direction=Direction.SELL,
                     ticker=ticker,
                     qty=qty,
                     price=None,
@@ -541,7 +541,7 @@ class CRUDOrder(CRUDOrderBase):
                     )
                     return await self._create_cancelled_order(
                         user_id=user_id,
-                        direction=OrderBookDirection.SELL,
+                        direction=Direction.SELL,
                         ticker=ticker,
                         qty=qty,
                         price=None,
@@ -565,16 +565,16 @@ class CRUDOrder(CRUDOrderBase):
 
                 return await self._create_order(
                     user_id=user_id,
-                    direction=OrderBookDirection.SELL,
+                    direction=Direction.SELL,
                     ticker=ticker,
                     qty=qty,
                     price=None,
-                    status=OrderStatus.EXECUTED,
+                    status=Status.EXECUTED,
                     filled=executed_qty,
                     session=session
                 )
         else:
-            info_logger.info("total_available_qty >= qty")
+            app_logger.info("total_available_qty >= qty")
             # Лимитная заявка
             # 4. Блокируем тикеры
             await balance_crud.block_assets(
@@ -633,7 +633,7 @@ class CRUDOrder(CRUDOrderBase):
             # Создаем заявку
             return await self._create_order(
                 user_id=user_id,
-                direction=OrderBookDirection.SELL,
+                direction=Direction.SELL,
                 ticker=ticker,
                 qty=qty,
                 price=price,
@@ -675,7 +675,7 @@ class CRUDOrder(CRUDOrderBase):
                 # Нет заявок на продажу - отменяем заявку
                 return await self._create_cancelled_order(
                     user_id=user_id,
-                    direction=OrderBookDirection.BUY,
+                    direction=Direction.BUY,
                     ticker=ticker,
                     qty=qty,
                     price=None,
@@ -703,7 +703,7 @@ class CRUDOrder(CRUDOrderBase):
             if available_qty < qty:
                 return await self._create_cancelled_order(
                     user_id=user_id,
-                    direction=OrderBookDirection.BUY,
+                    direction=Direction.BUY,
                     ticker=ticker,
                     qty=qty,
                     price=None,
@@ -749,7 +749,7 @@ class CRUDOrder(CRUDOrderBase):
                 )
                 return await self._create_cancelled_order(
                     user_id=user_id,
-                    direction=OrderBookDirection.BUY,
+                    direction=Direction.BUY,
                     ticker=ticker,
                     qty=qty,
                     price=None,
@@ -774,11 +774,11 @@ class CRUDOrder(CRUDOrderBase):
             # Создаем исполненную заявку
             return await self._create_order(
                 user_id=user_id,
-                direction=OrderBookDirection.BUY,
+                direction=Direction.BUY,
                 ticker=ticker,
                 qty=qty,
                 price=None,  # Рыночная заявка
-                status=OrderStatus.EXECUTED,
+                status=Status.EXECUTED,
                 filled=qty,
                 session=session
             )
@@ -867,7 +867,7 @@ class CRUDOrder(CRUDOrderBase):
             # Создаем заявку
             return await self._create_order(
                 user_id=user_id,
-                direction=OrderBookDirection.BUY,
+                direction=Direction.BUY,
                 ticker=ticker,
                 qty=qty,
                 price=price,
@@ -899,7 +899,7 @@ class CRUDOrder(CRUDOrderBase):
             raise ValueError('Заявка не найдена')
 
         # Проверяем, что заявка может быть отменена
-        if order.status not in [OrderStatus.NEW, OrderStatus.PARTIALLY_EXECUTED]:
+        if order.status not in [Status.NEW, Status.PARTIALLY_EXECUTED]:
             raise ValueError(f'Невозможно отменить заявку в статусе {order.status.value}')
 
         return await self._cancel_order(order, session)
@@ -912,7 +912,7 @@ class CRUDOrder(CRUDOrderBase):
             raise ValueError('В заявке нет невыполненной части для отмены')
 
         # Разблокируем средства в зависимости от направления заявки
-        if order.direction == OrderBookDirection.SELL:
+        if order.direction == Direction.SELL:
             # Разблокировка тикеров при отмене заявки на продажу
             await balance_crud.unblock_assets(
                 user_id=order.user_id,
@@ -952,7 +952,7 @@ class CRUDOrder(CRUDOrderBase):
                     )
 
         # Обновляем статус заявки
-        order.status = OrderStatus.CANCELLED
+        order.status = Status.CANCELLED
         await session.commit()
 
         return order

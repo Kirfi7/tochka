@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.logs.logs import error_log
+from app.core.logs import error_log
 from app.crud.base import CRUDBase
 from app.models.transaction import Transaction
 

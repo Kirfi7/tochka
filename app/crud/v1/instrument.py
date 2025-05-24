@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.logs.logs import error_log
+from app.core.logs import error_log
 from app.crud.base import CRUDBase
 from app.models.instrument import Instrument
 from app.schemas.instrument import (
@@ -19,7 +19,7 @@ class CRUDInstrument(CRUDBase[Instrument]):
         """Получает все существующие инструменты"""
         instruments = await self.get_multi(async_session)
         return [
-            InstrumentResponse.model_validate(instrument) for instrument in instruments
+            InstrumentResponse.from_orm(instrument) for instrument in instruments
         ]
 
     @error_log
@@ -36,7 +36,7 @@ class CRUDInstrument(CRUDBase[Instrument]):
         await async_session.refresh(instrument)
         await async_session.commit()
 
-        return InstrumentResponse.model_validate(instrument)
+        return InstrumentResponse.from_orm(instrument)
 
     @error_log
     async def delete_instrument(
